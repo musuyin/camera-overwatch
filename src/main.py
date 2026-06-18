@@ -68,16 +68,13 @@ def render_hud(frame: np.ndarray, status: dict, fps: float, last_latency: float)
 
 
 def draw_hand_landmarks(frame: np.ndarray, hand_data_list, tracker: HandTracker) -> None:
-    mp_drawing = tracker.get_mp_drawing()
-    mp_hands   = tracker.get_mp_hands()
-
-    # 重新跑推理以拿到 NormalizedLandmarkList（HandData 只存 Point3D）
-    # 实际场景中用同一帧，MP Hands 会直接返回缓存结果，不会增加额外耗时
-    # 注意：此处绘制直接在已有 frame 上叠加，无需重复推理
-    # 改为在 process() 中顺带保存原始 landmarks 更干净；此处简化为跳过骨架绘制
-    # 仅绘制手腕点作为标记
     h, w = frame.shape[:2]
     for hd in hand_data_list:
+        # 绘制 21 个关键点
+        for lm in hd.landmarks:
+            cx, cy = int(lm.x * w), int(lm.y * h)
+            cv2.circle(frame, (cx, cy), 3, (0, 200, 255), -1)
+        # 手腕标注手别
         cx = int(hd.wrist.x * w)
         cy = int(hd.wrist.y * h)
         cv2.circle(frame, (cx, cy), 6, (0, 200, 255), -1)
