@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
+import time
 import cv2
 import mediapipe as mp
 import numpy as np
@@ -77,16 +78,15 @@ class HandTracker:
         self._landmarker = _HandLandmarker.create_from_options(options)
         self._frame_w = 1
         self._frame_h = 1
-        self._timestamp_ms = 0
+        self._start_time_ms = int(time.monotonic() * 1000)
 
     def process(self, bgr_frame: np.ndarray) -> list[HandData]:
         self._frame_h, self._frame_w = bgr_frame.shape[:2]
         rgb = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2RGB)
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
 
-        self._timestamp_ms += 1
-        result = self._landmarker.detect_for_video(mp_image, self._timestamp_ms)
-
+        timestamp_ms = int(time.monotonic() * 1000) - self._start_time_ms
+        result = self._landmarker.detect_for_video(mp_image, max(timestamp_ms, 1))
         hand_data_list: list[HandData] = []
         if not result.hand_landmarks:
             return hand_data_list

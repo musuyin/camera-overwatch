@@ -2,6 +2,12 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from gesture.body_action import BodyAction
+from input.controller import CommandAction, GameCommand
+
+
+def make_cmd(action: CommandAction, key, ts: float) -> GameCommand:
+    """英雄层构造 GameCommand 的统一入口。"""
+    return GameCommand(action, key, ts)
 
 
 class HeroMapper(ABC):

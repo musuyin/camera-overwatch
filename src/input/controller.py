@@ -26,26 +26,27 @@ if _IS_WINDOWS:
         except Exception:
             _pydirectinput = None
 
-# ── 键盘扫描码表（Interception 使用硬件扫描码，不是虚拟键码）──────────────
-# 只列出本项目实际用到的键，按需扩充
+# ── 键盘扫描码表（Interception 使用硬件扫描码）────────────────────────────────
+# 字符串键名 → 扫描码（只列出项目实际用到的键，按需扩充）
 _SCAN_CODE: dict = {
     'q': 0x10, 'e': 0x12,
-    'shift': 0x2A,          # Left Shift
-    'ctrl':  0x1D,          # Left Ctrl
-    'alt':   0x38,          # Left Alt
+    'shift': 0x2A,   # Left Shift
+    'ctrl':  0x1D,   # Left Ctrl
+    'alt':   0x38,   # Left Alt
     'enter': 0x1C,
     'space': 0x39,
     'tab':   0x0F,
     'esc':   0x01,
 }
-_KEY_SCAN: dict = {         # pynput Key → 扫描码
-    Key.shift: 0x2A,
-    Key.ctrl:  0x1D,
-    Key.alt:   0x38,
-    Key.enter: 0x1C,
-    Key.space: 0x39,
-    Key.tab:   0x0F,
-    Key.esc:   0x01,
+# pynput Key 对象直接映射到同一张扫描码表（避免两份重复定义）
+_KEY_SCAN: dict = {
+    Key.shift: _SCAN_CODE['shift'],
+    Key.ctrl:  _SCAN_CODE['ctrl'],
+    Key.alt:   _SCAN_CODE['alt'],
+    Key.enter: _SCAN_CODE['enter'],
+    Key.space: _SCAN_CODE['space'],
+    Key.tab:   _SCAN_CODE['tab'],
+    Key.esc:   _SCAN_CODE['esc'],
 }
 
 # Interception 鼠标状态常量（取自 C 头文件标准值，用 getattr 兼容不同绑定版本）

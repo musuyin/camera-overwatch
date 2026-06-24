@@ -61,6 +61,15 @@ class _HandState:
 class GestureRecognizer:
     """几何规则手势识别引擎，维护帧间状态，输出 GestureEvent 列表。"""
 
+    _ZONE_GESTURE: dict = {
+        ("Left",  PositionZone.TOP):    GestureType.LEFT_ZONE_TOP,
+        ("Left",  PositionZone.MID):    GestureType.LEFT_ZONE_MID,
+        ("Left",  PositionZone.BOTTOM): GestureType.LEFT_ZONE_BOTTOM,
+        ("Right", PositionZone.TOP):    GestureType.RIGHT_ZONE_TOP,
+        ("Right", PositionZone.MID):    GestureType.RIGHT_ZONE_MID,
+        ("Right", PositionZone.BOTTOM): GestureType.RIGHT_ZONE_BOTTOM,
+    }
+
     def __init__(self, frame_width: int, frame_height: int):
         self._fw = frame_width
         self._fh = frame_height
@@ -129,15 +138,7 @@ class GestureRecognizer:
 
         if st.stable_zone == config.DEBOUNCE_FRAMES and cur_zone != st.last_fired_zone:
             st.last_fired_zone = cur_zone
-            zone_map = {
-                ("Left",  PositionZone.TOP):    GestureType.LEFT_ZONE_TOP,
-                ("Left",  PositionZone.MID):    GestureType.LEFT_ZONE_MID,
-                ("Left",  PositionZone.BOTTOM): GestureType.LEFT_ZONE_BOTTOM,
-                ("Right", PositionZone.TOP):    GestureType.RIGHT_ZONE_TOP,
-                ("Right", PositionZone.MID):    GestureType.RIGHT_ZONE_MID,
-                ("Right", PositionZone.BOTTOM): GestureType.RIGHT_ZONE_BOTTOM,
-            }
-            events.append(self._make_event(side, zone_map[(side, cur_zone)]))
+            events.append(self._make_event(side, self._ZONE_GESTURE[(side, cur_zone)]))
 
         # --- 甩手 ---
         wx = hd.wrist.x
@@ -160,13 +161,16 @@ class GestureRecognizer:
     def _check_both_extend(self) -> list[GestureEvent]:
         if "Left" not in self._states or "Right" not in self._states:
             return []
-        l_ext = self._states["Left"].last_fired_ext
-        r_ext = self._states["Right"].last_fired_ext
-        l_just = self._states["Left"].stable_ext  == config.DEBOUNCE_FRAMES
-        r_just = self._states["Right"].stable_ext == config.DEBOUNCE_FRAMES
-        if (l_just or r_just) and l_ext == Extension.EXTENDED and r_ext == Extension.EXTENDED:
+        l = self._states["Left"]
+        r = self._states["Right"]
+        l_just = l.stable_ext == config.DEBOUNCE_FRAMES
+        r_just = r.stable_ext == config.DEBOUNCE_FRAMES
+        if not (l_just or r_just):
+            return []
+        # 只在触发侧刚稳定的那帧检查，避免重复触发
+        if l.last_fired_ext == Extension.EXTENDED and r.last_fired_ext == Extension.EXTENDED:
             return [self._make_event("Both", GestureType.BOTH_EXTEND)]
-        if (l_just or r_just) and l_ext == Extension.RETRACTED and r_ext == Extension.RETRACTED:
+        if l.last_fired_ext == Extension.RETRACTED and r.last_fired_ext == Extension.RETRACTED:
             return [self._make_event("Both", GestureType.BOTH_RETRACT)]
         return []
 

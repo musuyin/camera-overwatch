@@ -4,17 +4,13 @@ from pynput.keyboard import Key
 from pynput.mouse import Button
 
 from gesture.body_action import BodyAction
-from heroes.base import HeroMapper
+from heroes.base import HeroMapper, make_cmd
 from input.controller import CommandAction, GameCommand
 
 
 class FormState(Enum):
     OMNIC   = auto()
     NEMESIS = auto()
-
-
-def _cmd(action: CommandAction, key, ts: float) -> GameCommand:
-    return GameCommand(action, key, ts)
 
 
 class RamattraMapper(HeroMapper):
@@ -51,49 +47,49 @@ class RamattraMapper(HeroMapper):
         return handler(self, timestamp) if handler else []
 
     def _omnic_attack(self, ts: float) -> list[GameCommand]:
-        return [_cmd(CommandAction.MOUSE_DOWN, Button.left, ts),
-                _cmd(CommandAction.MOUSE_UP,   Button.left, ts)]
+        return [make_cmd(CommandAction.MOUSE_DOWN, Button.left, ts),
+                make_cmd(CommandAction.MOUSE_UP,   Button.left, ts)]
 
     def _omnic_shield_on(self, ts: float) -> list[GameCommand]:
         if self._blocking:
             return []
         self._blocking = True
-        return [_cmd(CommandAction.KEY_DOWN, Key.shift, ts)]
+        return [make_cmd(CommandAction.KEY_DOWN, Key.shift, ts)]
 
     def _omnic_shield_off(self, ts: float) -> list[GameCommand]:
         if not self._blocking:
             return []
         self._blocking = False
-        return [_cmd(CommandAction.KEY_UP, Key.shift, ts)]
+        return [make_cmd(CommandAction.KEY_UP, Key.shift, ts)]
 
     def _omnic_vortex(self, ts: float) -> list[GameCommand]:
         cmds = self._omnic_shield_off(ts)
-        cmds += [_cmd(CommandAction.KEY_DOWN, 'e', ts), _cmd(CommandAction.KEY_UP, 'e', ts)]
+        cmds += [make_cmd(CommandAction.KEY_DOWN, 'e', ts), make_cmd(CommandAction.KEY_UP, 'e', ts)]
         return cmds
 
     def _omnic_transform(self, ts: float) -> list[GameCommand]:
         self._form = FormState.NEMESIS
-        return [_cmd(CommandAction.KEY_DOWN, 'q', ts), _cmd(CommandAction.KEY_UP, 'q', ts)]
+        return [make_cmd(CommandAction.KEY_DOWN, 'q', ts), make_cmd(CommandAction.KEY_UP, 'q', ts)]
 
     def _nemesis_right_punch(self, ts: float) -> list[GameCommand]:
-        return [_cmd(CommandAction.MOUSE_DOWN, Button.left, ts),
-                _cmd(CommandAction.MOUSE_UP,   Button.left, ts)]
+        return [make_cmd(CommandAction.MOUSE_DOWN, Button.left, ts),
+                make_cmd(CommandAction.MOUSE_UP,   Button.left, ts)]
 
     def _nemesis_left_punch(self, ts: float) -> list[GameCommand]:
-        return [_cmd(CommandAction.MOUSE_DOWN, Button.right, ts),
-                _cmd(CommandAction.MOUSE_UP,   Button.right, ts)]
+        return [make_cmd(CommandAction.MOUSE_DOWN, Button.right, ts),
+                make_cmd(CommandAction.MOUSE_UP,   Button.right, ts)]
 
     def _nemesis_block_on(self, ts: float) -> list[GameCommand]:
         if self._blocking:
             return []
         self._blocking = True
-        return [_cmd(CommandAction.KEY_DOWN, Key.shift, ts)]
+        return [make_cmd(CommandAction.KEY_DOWN, Key.shift, ts)]
 
     def _nemesis_block_off(self, ts: float) -> list[GameCommand]:
         if not self._blocking:
             return []
         self._blocking = False
-        return [_cmd(CommandAction.KEY_UP, Key.shift, ts)]
+        return [make_cmd(CommandAction.KEY_UP, Key.shift, ts)]
 
     def _nemesis_exit(self, ts: float) -> list[GameCommand]:
         cmds = self._nemesis_block_off(ts)

@@ -2,12 +2,8 @@ from __future__ import annotations
 from pynput.mouse import Button
 
 from gesture.body_action import BodyAction
-from heroes.base import HeroMapper
+from heroes.base import HeroMapper, make_cmd
 from input.controller import CommandAction, GameCommand
-
-
-def _cmd(action: CommandAction, key, ts: float) -> GameCommand:
-    return GameCommand(action, key, ts)
 
 
 class MoiraMapper(HeroMapper):
@@ -38,31 +34,31 @@ class MoiraMapper(HeroMapper):
         if self._left_pressing:
             return []
         self._left_pressing = True
-        return [_cmd(CommandAction.MOUSE_DOWN, Button.left, ts)]
+        return [make_cmd(CommandAction.MOUSE_DOWN, Button.left, ts)]
 
     def _left_retract(self, ts: float) -> list[GameCommand]:
         if not self._left_pressing:
             return []
         self._left_pressing = False
-        return [_cmd(CommandAction.MOUSE_UP, Button.left, ts)]
+        return [make_cmd(CommandAction.MOUSE_UP, Button.left, ts)]
 
     def _right_extend(self, ts: float) -> list[GameCommand]:
         if self._right_pressing:
             return []
         self._right_pressing = True
-        return [_cmd(CommandAction.MOUSE_DOWN, Button.right, ts)]
+        return [make_cmd(CommandAction.MOUSE_DOWN, Button.right, ts)]
 
     def _right_retract(self, ts: float) -> list[GameCommand]:
         if not self._right_pressing:
             return []
         self._right_pressing = False
-        return [_cmd(CommandAction.MOUSE_UP, Button.right, ts)]
+        return [make_cmd(CommandAction.MOUSE_UP, Button.right, ts)]
 
     def _throw(self, ts: float) -> list[GameCommand]:
-        return [_cmd(CommandAction.KEY_DOWN, 'e', ts), _cmd(CommandAction.KEY_UP, 'e', ts)]
+        return [make_cmd(CommandAction.KEY_DOWN, 'e', ts), make_cmd(CommandAction.KEY_UP, 'e', ts)]
 
     def _ultimate(self, ts: float) -> list[GameCommand]:
-        return [_cmd(CommandAction.KEY_DOWN, 'q', ts), _cmd(CommandAction.KEY_UP, 'q', ts)]
+        return [make_cmd(CommandAction.KEY_DOWN, 'q', ts), make_cmd(CommandAction.KEY_UP, 'q', ts)]
 
     _BINDINGS: dict = {
         BodyAction.LEFT_EXTEND:   _left_extend,

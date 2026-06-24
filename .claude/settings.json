@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(pip index *)",
-      "Bash(python3 -c ' *)"
+      "Bash(python3 -c ' *)",
+      "Skill(code-review)",
+      "Skill(code-review:*)"
     ]
   }
 }
