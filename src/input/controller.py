@@ -17,8 +17,12 @@ _pydirectinput = None
 if _IS_WINDOWS:
     try:
         import interception as _interception
-    except Exception:
+    except ImportError:
         _interception = None
+        print("[InputController] interception 模块未找到，请运行：pip install interception-python")
+    except Exception as e:
+        _interception = None
+        print(f"[InputController] interception 加载失败：{e}")
     if _interception is None:
         try:
             import pydirectinput as _pydirectinput
