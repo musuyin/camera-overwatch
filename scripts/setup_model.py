@@ -2,8 +2,8 @@
 环境安装脚本：下载 MediaPipe 手部关键点模型文件。
 
 在新机器上部署时，安装完依赖后运行一次即可：
-    pip install mediapipe opencv-python pynput numpy
-    python setup_model.py
+    pip install -r requirements-windows.txt  # 或 requirements-mac.txt
+    python scripts/setup_model.py
 """
 import ssl
 import sys
@@ -12,7 +12,7 @@ from pathlib import Path
 import certifi
 
 MODEL_URL  = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
-MODEL_PATH = Path(__file__).parent / "src" / "hand_landmarker.task"
+MODEL_PATH = Path(__file__).parent / ".." / "src" / "hand_landmarker.task"
 
 
 def download(url: str, dest: Path) -> None:

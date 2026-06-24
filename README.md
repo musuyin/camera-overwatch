@@ -19,9 +19,20 @@
 
 ## 安装
 
+根据操作系统选择对应的依赖文件（`pyobjc-*` 是 pynput 在 macOS 上的后端，Windows 不需要）：
+
 ```bash
-pip install mediapipe opencv-python pynput numpy
-python setup_model.py   # 下载 MediaPipe 手部关键点模型（约 8MB，仅需一次）
+# macOS
+pip install -r requirements-mac.txt
+
+# Windows
+pip install -r requirements-windows.txt
+```
+
+然后下载模型文件（仅需一次）：
+
+```bash
+python scripts/setup_model.py
 ```
 
 ## 运行
