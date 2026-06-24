@@ -18,16 +18,20 @@
 
 ```
 src/
-├── main.py                 入口，英雄选择 + 主循环 + HUD 渲染
-├── capture.py              摄像头采集（CaptureModule）
-├── hand_tracker.py         MediaPipe 封装（HandTracker + HandData）
-├── gesture_recognizer.py   手势识别规则引擎（GestureRecognizer + GestureEvent）
-├── hero_state.py           HeroMapper 抽象基类
-├── input_mapper.py         pynput 封装（InputController + GameCommand）
-├── config.py               全局参数（阈值、摄像头ID、区域边界）
-└── heroes/
-    ├── moira.py            莫伊拉：双手独立状态映射
-    └── ramattra.py         拉玛莎：OMNIC/NEMESIS 状态机
+├── main.py                     入口，英雄选择 + 主循环 + HUD 渲染
+├── config.py                   全局参数（阈值、摄像头ID、区域边界）
+├── vision/                     采集层 + 追踪层
+│   ├── capture.py              摄像头采集（CaptureModule）
+│   └── hand_tracker.py         MediaPipe 封装（HandTracker + HandData）
+├── gesture/                    识别层
+│   ├── recognizer.py           手势识别规则引擎（GestureRecognizer + GestureEvent）
+│   └── body_action.py          BodyAction 枚举 + GESTURE_TO_ACTION 映射表
+├── heroes/                     映射层
+│   ├── base.py                 HeroMapper 抽象基类
+│   ├── moira.py                莫伊拉：双手独立状态映射
+│   └── ramattra.py             拉玛莎：OMNIC/NEMESIS 状态机
+└── input/                      输出层
+    └── controller.py           pynput/pydirectinput 封装（InputController + GameCommand）
 ```
 
 ## 架构分层

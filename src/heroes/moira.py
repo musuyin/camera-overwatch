@@ -1,13 +1,13 @@
 from __future__ import annotations
 from pynput.mouse import Button
 
-from gesture_recognizer import GestureEvent, GestureType
-from hero_state import HeroMapper
-from input_mapper import CommandAction, GameCommand
+from gesture.body_action import BodyAction
+from heroes.base import HeroMapper
+from input.controller import CommandAction, GameCommand
 
 
-def _cmd(action: CommandAction, key, event: GestureEvent) -> GameCommand:
-    return GameCommand(action, key, event)
+def _cmd(action: CommandAction, key, ts: float) -> GameCommand:
+    return GameCommand(action, key, ts)
 
 
 class MoiraMapper(HeroMapper):
@@ -25,45 +25,59 @@ class MoiraMapper(HeroMapper):
         return "Moira"
 
     def __init__(self):
-        self._left_pressing  = False
+        self._left_pressing   = False
+        self._right_pressing  = False
+        self._last_action_name = "-"
+
+    def handle(self, action: BodyAction, timestamp: float) -> list[GameCommand]:
+        self._last_action_name = action.name
+        handler = self._BINDINGS.get(action)
+        return handler(self, timestamp) if handler else []
+
+    def _left_extend(self, ts: float) -> list[GameCommand]:
+        if self._left_pressing:
+            return []
+        self._left_pressing = True
+        return [_cmd(CommandAction.MOUSE_DOWN, Button.left, ts)]
+
+    def _left_retract(self, ts: float) -> list[GameCommand]:
+        if not self._left_pressing:
+            return []
+        self._left_pressing = False
+        return [_cmd(CommandAction.MOUSE_UP, Button.left, ts)]
+
+    def _right_extend(self, ts: float) -> list[GameCommand]:
+        if self._right_pressing:
+            return []
+        self._right_pressing = True
+        return [_cmd(CommandAction.MOUSE_DOWN, Button.right, ts)]
+
+    def _right_retract(self, ts: float) -> list[GameCommand]:
+        if not self._right_pressing:
+            return []
         self._right_pressing = False
-        self._last_event_name = "-"
+        return [_cmd(CommandAction.MOUSE_UP, Button.right, ts)]
 
-    def handle(self, event: GestureEvent) -> list[GameCommand]:
-        gt = event.gesture_type
-        cmds: list[GameCommand] = []
-        self._last_event_name = gt.name
+    def _throw(self, ts: float) -> list[GameCommand]:
+        return [_cmd(CommandAction.KEY_DOWN, 'e', ts), _cmd(CommandAction.KEY_UP, 'e', ts)]
 
-        if gt == GestureType.LEFT_EXTEND and not self._left_pressing:
-            cmds.append(_cmd(CommandAction.MOUSE_DOWN, Button.left, event))
-            self._left_pressing = True
+    def _ultimate(self, ts: float) -> list[GameCommand]:
+        return [_cmd(CommandAction.KEY_DOWN, 'q', ts), _cmd(CommandAction.KEY_UP, 'q', ts)]
 
-        elif gt == GestureType.LEFT_RETRACT and self._left_pressing:
-            cmds.append(_cmd(CommandAction.MOUSE_UP, Button.left, event))
-            self._left_pressing = False
-
-        elif gt == GestureType.RIGHT_EXTEND and not self._right_pressing:
-            cmds.append(_cmd(CommandAction.MOUSE_DOWN, Button.right, event))
-            self._right_pressing = True
-
-        elif gt == GestureType.RIGHT_RETRACT and self._right_pressing:
-            cmds.append(_cmd(CommandAction.MOUSE_UP, Button.right, event))
-            self._right_pressing = False
-
-        elif gt in (GestureType.SWIPE_LEFT, GestureType.SWIPE_RIGHT):
-            cmds.append(_cmd(CommandAction.KEY_DOWN, 'e', event))
-            cmds.append(_cmd(CommandAction.KEY_UP,   'e', event))
-
-        elif gt == GestureType.BOTH_EXTEND:
-            cmds.append(_cmd(CommandAction.KEY_DOWN, 'q', event))
-            cmds.append(_cmd(CommandAction.KEY_UP,   'q', event))
-
-        return cmds
+    _BINDINGS: dict = {
+        BodyAction.LEFT_EXTEND:   _left_extend,
+        BodyAction.LEFT_RETRACT:  _left_retract,
+        BodyAction.RIGHT_EXTEND:  _right_extend,
+        BodyAction.RIGHT_RETRACT: _right_retract,
+        BodyAction.SWIPE_LEFT:    _throw,
+        BodyAction.SWIPE_RIGHT:   _throw,
+        BodyAction.BOTH_EXTEND:   _ultimate,
+    }
 
     def get_status(self) -> dict:
         return {
             "hero":        self.name,
             "left_hand":   "EXTENDING" if self._left_pressing  else "retracted",
             "right_hand":  "EXTENDING" if self._right_pressing else "retracted",
-            "last_event":  self._last_event_name,
+            "last_action": self._last_action_name,
         }

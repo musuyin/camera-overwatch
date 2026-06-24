@@ -14,13 +14,14 @@ import numpy as np
 logging.getLogger('absl').setLevel(logging.ERROR)
 
 import config
-from capture import CaptureModule
-from hand_tracker import HandTracker
-from gesture_recognizer import GestureRecognizer
-from hero_state import HeroMapper
-from input_mapper import InputController
+from gesture.body_action import GESTURE_TO_ACTION
+from gesture.recognizer import GestureRecognizer
+from heroes.base import HeroMapper
 from heroes.moira import MoiraMapper
 from heroes.ramattra import RamattraMapper
+from input.controller import InputController
+from vision.capture import CaptureModule
+from vision.hand_tracker import HandTracker
 
 
 def _setup_logging() -> logging.Logger:
@@ -77,7 +78,7 @@ def render_hud(frame: np.ndarray, status: dict, fps: float, last_latency: float)
         f"Left:  {status.get('left_hand',  '-')}" if "left_hand"  in status else None,
         f"Right: {status.get('right_hand', '-')}" if "right_hand" in status else None,
         f"Block: {status.get('blocking',   '-')}" if "blocking"   in status else None,
-        f"Last:  {status.get('last_event', '-')}",
+        f"Last:  {status.get('last_action', '-')}",
         f"Latency: {last_latency:.1f}ms",
         f"FPS: {fps:.1f}",
     ]
@@ -145,14 +146,17 @@ def main_loop(hero: HeroMapper) -> None:
         # 识别
         events = recognizer.update(hand_data_list)
 
-        # 映射 + 执行
+        # 翻译 GestureEvent → BodyAction，再交给英雄处理
         for event in events:
-            cmds = hero.handle(event)
+            action = GESTURE_TO_ACTION.get(event.gesture_type)
+            if action is None:
+                continue
+            cmds = hero.handle(action, event.timestamp)
             if cmds:
                 cmd_names = ', '.join(f'{c.action.name}({c.key})' for c in cmds)
-                logger.info('EVENT %-22s → %s', event.gesture_type.name, cmd_names)
+                logger.info('ACTION %-22s → %s', action.name, cmd_names)
             else:
-                logger.debug('EVENT %-22s (no command)', event.gesture_type.name)
+                logger.debug('ACTION %-22s (no command)', action.name)
             for cmd in cmds:
                 done_ts      = controller.execute(cmd)
                 last_latency = done_ts - event.timestamp

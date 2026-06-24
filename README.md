@@ -104,16 +104,20 @@ python main.py
 
 ```
 src/
-├── main.py                 入口，英雄选择 + 主循环 + HUD 渲染
-├── capture.py              摄像头采集
-├── hand_tracker.py         MediaPipe 封装，输出双手关键点
-├── gesture_recognizer.py   手势识别规则引擎（伸缩/区域/交叉/甩手/去抖）
-├── hero_state.py           HeroMapper 抽象基类
-├── input_mapper.py         pynput 键鼠输出封装
-├── config.py               全局参数
-└── heroes/
-    ├── moira.py            莫伊拉映射逻辑
-    └── ramattra.py         拉玛莎状态机映射逻辑
+├── main.py                     入口，英雄选择 + 主循环 + HUD 渲染
+├── config.py                   全局参数
+├── vision/                     采集层 + 追踪层
+│   ├── capture.py              摄像头采集
+│   └── hand_tracker.py         MediaPipe 封装，输出双手关键点
+├── gesture/                    识别层
+│   ├── recognizer.py           手势识别规则引擎（伸缩/区域/交叉/甩手/去抖）
+│   └── body_action.py          BodyAction 枚举 + GestureType → BodyAction 映射表
+├── heroes/                     映射层
+│   ├── base.py                 HeroMapper 抽象基类
+│   ├── moira.py                莫伊拉映射逻辑
+│   └── ramattra.py             拉玛莎状态机映射逻辑
+└── input/                      输出层
+    └── controller.py           键鼠输出封装（Windows: pydirectinput，macOS: pynput）
 ```
 
 ## HUD 说明
