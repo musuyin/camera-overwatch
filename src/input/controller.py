@@ -10,46 +10,71 @@ from pynput.mouse import Button
 
 _IS_WINDOWS = platform.system() == "Windows"
 
-# Windows 后端：优先 interception（内核驱动，可穿透反外挂），降级到 pydirectinput
-_interception = None
+# Windows 后端：优先 Interception 内核驱动，降级到 pydirectinput
+_interception  = None
+_pydirectinput = None
+
 if _IS_WINDOWS:
     try:
         import interception as _interception
     except Exception:
         _interception = None
     if _interception is None:
-        import pydirectinput as _pydirectinput
-        _pydirectinput.PAUSE = 0
-    else:
-        _pydirectinput = None
+        try:
+            import pydirectinput as _pydirectinput
+            _pydirectinput.PAUSE = 0
+        except Exception:
+            _pydirectinput = None
 
-# pynput Key/Button → interception/pydirectinput 字符串
-_KEY_NAME: dict = {
-    Key.shift:  'shift',
-    Key.ctrl:   'ctrl',
-    Key.alt:    'alt',
-    Key.enter:  'enter',
-    Key.space:  'space',
-    Key.tab:    'tab',
-    Key.esc:    'esc',
+# ── 键盘扫描码表（Interception 使用硬件扫描码，不是虚拟键码）──────────────
+# 只列出本项目实际用到的键，按需扩充
+_SCAN_CODE: dict = {
+    'q': 0x10, 'e': 0x12,
+    'shift': 0x2A,          # Left Shift
+    'ctrl':  0x1D,          # Left Ctrl
+    'alt':   0x38,          # Left Alt
+    'enter': 0x1C,
+    'space': 0x39,
+    'tab':   0x0F,
+    'esc':   0x01,
 }
-_BTN_NAME: dict = {
-    Button.left:   'left',
-    Button.right:  'right',
-    Button.middle: 'middle',
+_KEY_SCAN: dict = {         # pynput Key → 扫描码
+    Key.shift: 0x2A,
+    Key.ctrl:  0x1D,
+    Key.alt:   0x38,
+    Key.enter: 0x1C,
+    Key.space: 0x39,
+    Key.tab:   0x0F,
+    Key.esc:   0x01,
 }
 
-# interception 鼠标按钮常量（仅 Windows + 驱动已安装时有效）
-_INTERCEPTION_BTN: dict = {}
-if _IS_WINDOWS and _interception is not None:
-    _INTERCEPTION_BTN = {
-        'left':   (_interception.INTERCEPTION_MOUSE_LEFT_BUTTON_DOWN,
-                   _interception.INTERCEPTION_MOUSE_LEFT_BUTTON_UP),
-        'right':  (_interception.INTERCEPTION_MOUSE_RIGHT_BUTTON_DOWN,
-                   _interception.INTERCEPTION_MOUSE_RIGHT_BUTTON_UP),
-        'middle': (_interception.INTERCEPTION_MOUSE_MIDDLE_BUTTON_DOWN,
-                   _interception.INTERCEPTION_MOUSE_MIDDLE_BUTTON_UP),
-    }
+# Interception 鼠标状态常量（取自 C 头文件标准值，用 getattr 兼容不同绑定版本）
+def _ic_const(name: str, default: int) -> int:
+    return getattr(_interception, name, default) if _interception else default
+
+_KEY_DOWN_STATE = _ic_const('INTERCEPTION_KEY_DOWN', 0x00)
+_KEY_UP_STATE   = _ic_const('INTERCEPTION_KEY_UP',   0x01)
+_BTN_STATES: dict = {
+    'left':   (_ic_const('INTERCEPTION_MOUSE_LEFT_BUTTON_DOWN',   0x0001),
+               _ic_const('INTERCEPTION_MOUSE_LEFT_BUTTON_UP',     0x0002)),
+    'right':  (_ic_const('INTERCEPTION_MOUSE_RIGHT_BUTTON_DOWN',  0x0004),
+               _ic_const('INTERCEPTION_MOUSE_RIGHT_BUTTON_UP',    0x0008)),
+    'middle': (_ic_const('INTERCEPTION_MOUSE_MIDDLE_BUTTON_DOWN', 0x0010),
+               _ic_const('INTERCEPTION_MOUSE_MIDDLE_BUTTON_UP',   0x0020)),
+}
+
+# Interception 设备号约定：1-10 为键盘，11-20 为鼠标
+_KBD_DEVICE   = 1
+_MOUSE_DEVICE = 11
+
+# pynput Key/Button → pydirectinput 字符串（降级用）
+_PYDIRECT_KEY: dict = {
+    Key.shift: 'shift', Key.ctrl: 'ctrl', Key.alt: 'alt',
+    Key.enter: 'enter', Key.space: 'space', Key.tab: 'tab', Key.esc: 'esc',
+}
+_PYDIRECT_BTN: dict = {
+    Button.left: 'left', Button.right: 'right', Button.middle: 'middle',
+}
 
 
 class CommandAction(Enum):
@@ -68,23 +93,27 @@ class GameCommand:
 
 class InputController:
     """
-    键鼠输出封装，三层降级策略：
-    1. Windows + Interception 驱动 → 内核级注入，游戏无法过滤
-    2. Windows，无驱动             → pydirectinput（扫描码 SendInput）
-    3. macOS                       → pynput
+    键鼠输出封装，三层策略：
+    1. Windows + Interception 驱动  →  内核级扫描码注入，穿透反外挂
+    2. Windows，无驱动              →  pydirectinput（SendInput 扫描码）
+    3. macOS                        →  pynput
     """
 
     def __init__(self):
         if _IS_WINDOWS:
             if _interception is not None:
+                # 只创建上下文，不调用 auto_capture_devices
+                # auto_capture_devices(keyboard=True) 会拦截真实键盘输入导致键盘失效
                 self._ctx = _interception.interception()
-                self._ctx.auto_capture_devices(keyboard=True, mouse=True)
-            else:
+                print("[InputController] 使用 Interception 内核驱动")
+            elif _pydirectinput is not None:
                 print(
-                    "[InputController] 未检测到 Interception 驱动，使用 pydirectinput 降级模式。\n"
+                    "[InputController] 未检测到 Interception 驱动，降级为 pydirectinput\n"
                     "  游戏内可能无法接收输入，建议安装驱动：\n"
                     "  https://github.com/oblitum/Interception/releases"
                 )
+            else:
+                print("[InputController] 警告：Windows 下无可用输入后端")
         else:
             self._kb = kb_mod.Controller()
             self._ms = ms_mod.Controller()
@@ -93,14 +122,14 @@ class InputController:
         if _IS_WINDOWS:
             if _interception is not None:
                 self._execute_interception(cmd)
-            else:
+            elif _pydirectinput is not None:
                 self._execute_directinput(cmd)
         else:
             self._execute_pynput(cmd)
         return time.monotonic() * 1000
 
     # ------------------------------------------------------------------
-    # Interception（内核驱动）
+    # Interception（内核级，不拦截真实输入）
     # ------------------------------------------------------------------
 
     def _execute_interception(self, cmd: GameCommand) -> None:
@@ -108,23 +137,22 @@ class InputController:
         key    = cmd.key
 
         if action in (CommandAction.KEY_DOWN, CommandAction.KEY_UP):
-            name    = _KEY_NAME.get(key, key)
-            stroke  = _interception.key_stroke(
-                _interception.str_to_key(name.upper()),
-                _interception.INTERCEPTION_KEY_DOWN if action == CommandAction.KEY_DOWN
-                else _interception.INTERCEPTION_KEY_UP,
-            )
-            self._ctx.send_to_keyboard(stroke)
+            scan = _KEY_SCAN.get(key) if isinstance(key, Key) else _SCAN_CODE.get(str(key).lower())
+            if scan is None:
+                return
+            state  = _KEY_DOWN_STATE if action == CommandAction.KEY_DOWN else _KEY_UP_STATE
+            stroke = _interception.key_stroke(scan, state, 0)
+            self._ctx.send(_KBD_DEVICE, stroke)
 
         elif action in (CommandAction.MOUSE_DOWN, CommandAction.MOUSE_UP):
-            btn      = _BTN_NAME.get(key, 'left')
-            down_f, up_f = _INTERCEPTION_BTN[btn]
-            flags    = down_f if action == CommandAction.MOUSE_DOWN else up_f
-            stroke   = _interception.mouse_stroke(flags, 0, 0)
-            self._ctx.send_to_mouse(stroke)
+            btn       = _PYDIRECT_BTN.get(key, 'left')
+            down_f, up_f = _BTN_STATES[btn]
+            flags     = down_f if action == CommandAction.MOUSE_DOWN else up_f
+            stroke    = _interception.mouse_stroke(flags, 0, 0, 0)
+            self._ctx.send(_MOUSE_DEVICE, stroke)
 
     # ------------------------------------------------------------------
-    # pydirectinput（扫描码 SendInput，无驱动降级）
+    # pydirectinput（SendInput 扫描码，降级）
     # ------------------------------------------------------------------
 
     def _execute_directinput(self, cmd: GameCommand) -> None:
@@ -132,13 +160,13 @@ class InputController:
         key    = cmd.key
 
         if action in (CommandAction.KEY_DOWN, CommandAction.KEY_UP):
-            name = _KEY_NAME.get(key, key)
+            name = _PYDIRECT_KEY.get(key, key)
             if action == CommandAction.KEY_DOWN:
                 _pydirectinput.keyDown(name)
             else:
                 _pydirectinput.keyUp(name)
         elif action in (CommandAction.MOUSE_DOWN, CommandAction.MOUSE_UP):
-            btn = _BTN_NAME.get(key, 'left')
+            btn = _PYDIRECT_BTN.get(key, 'left')
             if action == CommandAction.MOUSE_DOWN:
                 _pydirectinput.mouseDown(button=btn)
             else:
