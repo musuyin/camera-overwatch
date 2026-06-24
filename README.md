@@ -35,6 +35,16 @@ pip install -r requirements-windows.txt
 python scripts/setup_model.py
 ```
 
+### Windows 游戏内输入（Interception 驱动）
+
+程序在 Windows 上默认使用 **Interception 内核驱动**注入输入，可穿透 Overwatch 的 `LLMHF_INJECTED` 过滤。安装步骤：
+
+1. 从 [Interception Releases](https://github.com/oblitum/Interception/releases) 下载安装包
+2. **以管理员身份**运行安装程序
+3. **重启电脑**（驱动必须在系统启动时加载）
+
+未安装驱动时程序自动降级为 `pydirectinput`，游戏外测试可用，但游戏内可能无效。
+
 ## 运行
 
 ```bash
