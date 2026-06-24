@@ -107,25 +107,34 @@ class InputController:
     def __init__(self):
         if _IS_WINDOWS:
             if _interception is not None:
-                # 只创建上下文，不调用 auto_capture_devices
-                # auto_capture_devices(keyboard=True) 会拦截真实键盘输入导致键盘失效
-                self._ctx = _interception.interception()
-                print("[InputController] 使用 Interception 内核驱动")
+                try:
+                    # 只创建上下文，不调用 auto_capture_devices
+                    # auto_capture_devices(keyboard=True) 会拦截真实键盘输入导致键盘失效
+                    self._ctx = _interception.interception()
+                    print("[InputController] 使用 Interception 内核驱动")
+                except Exception as e:
+                    print(f"[InputController] Interception 初始化失败：{e}")
+                    print("  可能原因：")
+                    print("  1. 驱动已安装但尚未重启 → 请重启电脑后再试")
+                    print("  2. 程序未以管理员权限运行 → 右键 cmd/terminal 选「以管理员身份运行」")
+                    self._ctx = None
             elif _pydirectinput is not None:
+                self._ctx = None
                 print(
                     "[InputController] 未检测到 Interception 驱动，降级为 pydirectinput\n"
-                    "  游戏内可能无法接收输入，建议安装驱动：\n"
-                    "  https://github.com/oblitum/Interception/releases"
+                    "  游戏内可能无法接收输入"
                 )
             else:
+                self._ctx = None
                 print("[InputController] 警告：Windows 下无可用输入后端")
         else:
+            self._ctx = None
             self._kb = kb_mod.Controller()
             self._ms = ms_mod.Controller()
 
     def execute(self, cmd: GameCommand) -> float:
         if _IS_WINDOWS:
-            if _interception is not None:
+            if _interception is not None and self._ctx is not None:
                 self._execute_interception(cmd)
             elif _pydirectinput is not None:
                 self._execute_directinput(cmd)

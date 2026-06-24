@@ -48,7 +48,7 @@ src/
 - **特殊键必须用 `pynput.keyboard.Key`**，不能用字符串。例如 `Key.shift`，不能写 `'shift'`。单字符键（`'e'`、`'q'`）可以直接用字符串。
 - `GestureRecognizer` 是唯一维护帧间历史状态的模块（除 `HeroMapper` 的业务状态机）。
 - 去抖阈值：状态连续保持 `DEBOUNCE_FRAMES` 帧后才触发事件，甩手检测不走去抖。
-- 摄像头帧在主循环中水平翻转（`cv2.flip`），交叉判断逻辑基于翻转后坐标。
+- 摄像头帧在主循环中水平翻转（`cv2.flip`）后再传给 MediaPipe，`hand_tracker.py` 中对调 Left/Right 标签修正镜像偏差，使 `HandData.handedness` 与用户实际手对应。
 - `EXTEND_THRESHOLD` 单位为像素²，首次使用需按摄像头分辨率标定。
 
 ## 开发环境

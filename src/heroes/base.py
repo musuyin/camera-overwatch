@@ -22,6 +22,10 @@ class HeroMapper(ABC):
     def handle(self, action: BodyAction, timestamp: float) -> list:
         """接收一个 BodyAction 和事件时间戳，返回 GameCommand 列表。"""
 
+    def tick(self, timestamp: float) -> list:
+        """每帧调用，用于定时/超时逻辑。默认无操作。返回 GameCommand 列表。"""
+        return []
+
     @abstractmethod
     def get_status(self) -> dict:
         """返回当前状态字典，用于 HUD 显示。"""

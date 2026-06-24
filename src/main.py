@@ -1,8 +1,13 @@
 from __future__ import annotations
 import os
 # Suppress MediaPipe / GLOG C++ logs (must be set before mediapipe is imported)
-os.environ.setdefault('GLOG_minloglevel', '3')       # 0=INFO 1=WARNING 2=ERROR 3=FATAL
+os.environ.setdefault('GLOG_minloglevel', '3')
 os.environ.setdefault('TF_CPP_MIN_LOG_LEVEL', '3')
+os.environ.setdefault('MEDIAPIPE_DISABLE_GPU', '1')
+# Suppress MediaPipe clearcut telemetry uploader
+os.environ.setdefault('GRPC_VERBOSITY', 'ERROR')
+os.environ.setdefault('GRPC_TRACE', '')
+os.environ.setdefault('GLOG_logtostderr', '0')
 
 import logging
 import sys
@@ -71,17 +76,28 @@ def _put_text_shadowed(frame: np.ndarray, text: str, pos: tuple[int, int],
     cv2.putText(frame, text, (x,     y),     _FONT, scale, _TEXT_COLOR, thickness,     cv2.LINE_AA)
 
 
-def render_hud(frame: np.ndarray, status: dict, fps: float, last_latency: float) -> None:
+def render_hud(frame: np.ndarray, status: dict, fps: float, last_latency: float,
+               hand_data_list=None) -> None:
     lines = [
         f"Hero: {status.get('hero', '-')}",
         f"Form: {status.get('form', '-')}" if "form" in status else None,
+        f"Nemesis: {status.get('nemesis_rem')}" if status.get('nemesis_rem', '-') != '-' else None,
         f"Left:  {status.get('left_hand',  '-')}" if "left_hand"  in status else None,
         f"Right: {status.get('right_hand', '-')}" if "right_hand" in status else None,
-        f"Block: {status.get('blocking',   '-')}" if "blocking"   in status else None,
+        f"Block: {status.get('holding',   '-')}" if "holding"   in status else None,
         f"Last:  {status.get('last_action', '-')}",
         f"Latency: {last_latency:.1f}ms",
         f"FPS: {fps:.1f}",
     ]
+
+    # 标定模式：显示 palm_area 和 wrist.y 原始值，方便调阈值
+    if config.CALIBRATE_MODE and hand_data_list:
+        lines.append("--- CALIBRATE ---")
+        for hd in hand_data_list:
+            lines.append(f"{hd.handedness}: area={hd.palm_area:.0f}  wy={hd.wrist.y:.3f}")
+        lines.append(f"EXTEND_THRESHOLD={config.EXTEND_THRESHOLD}")
+        lines.append(f"ZONE_TOP={config.ZONE_TOP_BOUNDARY}  BOT={config.ZONE_BOTTOM_BOUNDARY}")
+
     y = 28
     for line in lines:
         if line is None:
@@ -162,6 +178,11 @@ def main_loop(hero: HeroMapper) -> None:
                 last_latency = done_ts - event.timestamp
                 logger.debug('  latency=%.1fms', last_latency)
 
+        # 定时逻辑（如天罚形态自动退出）
+        tick_ts = time.monotonic() * 1000
+        for cmd in hero.tick(tick_ts):
+            controller.execute(cmd)
+
         # 绘制关键点
         draw_hand_landmarks(frame, hand_data_list, tracker)
 
@@ -174,7 +195,7 @@ def main_loop(hero: HeroMapper) -> None:
             fps_timer = time.monotonic()
 
         # HUD
-        render_hud(frame, hero.get_status(), fps, last_latency)
+        render_hud(frame, hero.get_status(), fps, last_latency, hand_data_list)
 
         cv2.imshow("Gesture Overwatch", frame)
 

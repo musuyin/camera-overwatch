@@ -92,7 +92,9 @@ class HandTracker:
             return hand_data_list
 
         for lm_list, handedness_list in zip(result.hand_landmarks, result.handedness):
-            label = handedness_list[0].category_name
+            # 帧已水平翻转，MediaPipe 的 Left/Right 与实际相反，对调修正
+            raw_label = handedness_list[0].category_name
+            label = "Right" if raw_label == "Left" else "Left"
             lms = [Point3D(lm.x, lm.y, lm.z) for lm in lm_list]
             wrist = lms[0]
             palm_pts = [

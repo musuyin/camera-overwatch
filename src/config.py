@@ -1,9 +1,11 @@
 CAMERA_ID            = 0
 TARGET_FPS           = 30
-DEBOUNCE_FRAMES      = 4        # ~133ms @ 30fps
-EXTEND_THRESHOLD     = 8000     # 手掌四边形面积阈值（像素²），需按摄像头分辨率标定
-ZONE_TOP_BOUNDARY    = 0.35     # 归一化 y，小于此值为 TOP 区域
-ZONE_BOTTOM_BOUNDARY = 0.65     # 归一化 y，大于此值为 BOTTOM 区域
-SWIPE_MIN_VELOCITY   = 0.03     # 甩手触发最小速度（归一化坐标/帧）
+DEBOUNCE_FRAMES      = 6        # 去抖帧数，提高到 6（~200ms @ 30fps），减少误触发
+EXTEND_THRESHOLD     = 8000     # 手掌四边形面积阈值（像素²）★ 需标定，开启 CALIBRATE_MODE 查看实时值
+ZONE_TOP_BOUNDARY    = 0.35     # 归一化 y，小于此值为 TOP 区域 ★ 需标定
+ZONE_BOTTOM_BOUNDARY = 0.65     # 归一化 y，大于此值为 BOTTOM 区域 ★ 需标定
+SWIPE_MIN_VELOCITY   = 0.05     # 甩手触发最小速度（提高阈值减少误触发）
 SWIPE_FRAMES         = 5        # 计算甩手速度的滑动窗口帧数
+BOTH_WINDOW_FRAMES   = 10       # BOTH_EXTEND：两手都稳定的时间窗口（帧），超出则不算同时
 DEBUG_LOG            = False
+CALIBRATE_MODE       = False    # True 时 HUD 显示 palm_area / wrist.y 原始值，用于标定阈值

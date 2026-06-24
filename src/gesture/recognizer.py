@@ -56,6 +56,8 @@ class _HandState:
     wrist_x_history: deque = field(default_factory=lambda: deque(maxlen=config.SWIPE_FRAMES))
     prev_wrist_x: float | None  = None
     swipe_cooldown: int         = 0
+    # 记录上次伸缩事件触发时的帧计数，用于 BOTH_EXTEND 时间窗口判断
+    ext_fired_frame: int        = -999
 
 
 class GestureRecognizer:
@@ -76,8 +78,10 @@ class GestureRecognizer:
         self._states: dict[str, _HandState] = {}
         self._prev_cross: bool | None = None
         self._cross_stable: int = 0
+        self._frame_count: int = 0
 
     def update(self, hand_data_list: list[HandData]) -> list[GestureEvent]:
+        self._frame_count += 1
         events: list[GestureEvent] = []
         present = {h.handedness for h in hand_data_list}
 
@@ -113,6 +117,7 @@ class GestureRecognizer:
 
         if st.stable_ext == config.DEBOUNCE_FRAMES and cur_ext != st.last_fired_ext:
             st.last_fired_ext = cur_ext
+            st.ext_fired_frame = self._frame_count
             gt = (
                 GestureType.LEFT_EXTEND  if side == "Left"  and cur_ext == Extension.EXTENDED  else
                 GestureType.LEFT_RETRACT if side == "Left"  and cur_ext == Extension.RETRACTED else
@@ -140,13 +145,15 @@ class GestureRecognizer:
             st.last_fired_zone = cur_zone
             events.append(self._make_event(side, self._ZONE_GESTURE[(side, cur_zone)]))
 
-        # --- 甩手 ---
+        # --- 甩手：仅在 RETRACTED 状态下检测，防止伸手过程误触发 ---
         wx = hd.wrist.x
         st.wrist_x_history.append(wx)
         if st.swipe_cooldown > 0:
             st.swipe_cooldown -= 1
 
-        if len(st.wrist_x_history) >= 2 and st.swipe_cooldown == 0:
+        if (len(st.wrist_x_history) >= 2
+                and st.swipe_cooldown == 0
+                and st.last_fired_ext == Extension.RETRACTED):   # 只在收回状态甩手
             dx = st.wrist_x_history[-1] - st.wrist_x_history[0]
             avg_vel = dx / max(len(st.wrist_x_history) - 1, 1)
             if abs(avg_vel) > config.SWIPE_MIN_VELOCITY:
@@ -167,7 +174,12 @@ class GestureRecognizer:
         r_just = r.stable_ext == config.DEBOUNCE_FRAMES
         if not (l_just or r_just):
             return []
-        # 只在触发侧刚稳定的那帧检查，避免重复触发
+
+        # 两手伸缩事件必须在 BOTH_WINDOW_FRAMES 内都触发，否则不算"同时"
+        frame_gap = abs(l.ext_fired_frame - r.ext_fired_frame)
+        if frame_gap > config.BOTH_WINDOW_FRAMES:
+            return []
+
         if l.last_fired_ext == Extension.EXTENDED and r.last_fired_ext == Extension.EXTENDED:
             return [self._make_event("Both", GestureType.BOTH_EXTEND)]
         if l.last_fired_ext == Extension.RETRACTED and r.last_fired_ext == Extension.RETRACTED:

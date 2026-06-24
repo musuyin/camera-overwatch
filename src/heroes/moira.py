@@ -10,10 +10,13 @@ class MoiraMapper(HeroMapper):
     """
     莫伊拉（Moira）：双手独立状态型。
 
-    左手伸出 → 左键按住（治疗光束）
-    右手伸出 → 右键按住（伤害光束）
-    甩手    → E（扔球）
-    双手同时伸出 → Q（大招）
+    左手伸出      → 左键按住（治疗光束）
+    左手收回      → 左键释放
+    左手抬至上区  → E + 左键（扔治疗球）
+    右手伸出      → 右键按住（伤害光束）
+    右手收回      → 右键释放
+    右手抬至上区  → E + 右键（扔伤害球）
+    双手同时伸出  → Q（大招）
     """
 
     @property
@@ -54,20 +57,39 @@ class MoiraMapper(HeroMapper):
         self._right_pressing = False
         return [make_cmd(CommandAction.MOUSE_UP, Button.right, ts)]
 
-    def _throw(self, ts: float) -> list[GameCommand]:
-        return [make_cmd(CommandAction.KEY_DOWN, 'e', ts), make_cmd(CommandAction.KEY_UP, 'e', ts)]
+    def _left_throw(self, ts: float) -> list[GameCommand]:
+        """左手上抬：E + 左键（扔治疗球），若光束开着先释放再扔"""
+        cmds = self._left_retract(ts)
+        cmds += [
+            make_cmd(CommandAction.KEY_DOWN,   'e',         ts),
+            make_cmd(CommandAction.KEY_UP,     'e',         ts),
+            make_cmd(CommandAction.MOUSE_DOWN, Button.left, ts),
+            make_cmd(CommandAction.MOUSE_UP,   Button.left, ts),
+        ]
+        return cmds
+
+    def _right_throw(self, ts: float) -> list[GameCommand]:
+        """右手上抬：E + 右键（扔伤害球），若光束开着先释放再扔"""
+        cmds = self._right_retract(ts)
+        cmds += [
+            make_cmd(CommandAction.KEY_DOWN,   'e',          ts),
+            make_cmd(CommandAction.KEY_UP,     'e',          ts),
+            make_cmd(CommandAction.MOUSE_DOWN, Button.right, ts),
+            make_cmd(CommandAction.MOUSE_UP,   Button.right, ts),
+        ]
+        return cmds
 
     def _ultimate(self, ts: float) -> list[GameCommand]:
         return [make_cmd(CommandAction.KEY_DOWN, 'q', ts), make_cmd(CommandAction.KEY_UP, 'q', ts)]
 
     _BINDINGS: dict = {
-        BodyAction.LEFT_EXTEND:   _left_extend,
-        BodyAction.LEFT_RETRACT:  _left_retract,
-        BodyAction.RIGHT_EXTEND:  _right_extend,
-        BodyAction.RIGHT_RETRACT: _right_retract,
-        BodyAction.SWIPE_LEFT:    _throw,
-        BodyAction.SWIPE_RIGHT:   _throw,
-        BodyAction.BOTH_EXTEND:   _ultimate,
+        BodyAction.LEFT_EXTEND:      _left_extend,
+        BodyAction.LEFT_RETRACT:     _left_retract,
+        BodyAction.LEFT_ZONE_TOP:    _left_throw,
+        BodyAction.RIGHT_EXTEND:     _right_extend,
+        BodyAction.RIGHT_RETRACT:    _right_retract,
+        BodyAction.RIGHT_ZONE_TOP:   _right_throw,
+        BodyAction.BOTH_EXTEND:      _ultimate,
     }
 
     def get_status(self) -> dict:
