@@ -5,7 +5,6 @@ import time
 
 from pynput import keyboard as kb_mod, mouse as ms_mod
 from gesture_recognizer import GestureEvent
-import config
 
 
 class CommandAction(Enum):
@@ -43,11 +42,4 @@ class InputController:
             self._ms.release(key)
 
         ts = time.monotonic() * 1000
-        if config.DEBUG_LOG:
-            latency = ts - cmd.source_event.timestamp
-            print(
-                f"[CMD] {action.name}({key}) | "
-                f"event={cmd.source_event.gesture_type.name} | "
-                f"latency={latency:.1f}ms"
-            )
         return ts

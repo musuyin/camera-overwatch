@@ -1,9 +1,17 @@
 from __future__ import annotations
+import os
+# Suppress MediaPipe / GLOG C++ logs (must be set before mediapipe is imported)
+os.environ.setdefault('GLOG_minloglevel', '3')       # 0=INFO 1=WARNING 2=ERROR 3=FATAL
+os.environ.setdefault('TF_CPP_MIN_LOG_LEVEL', '3')
+
+import logging
 import sys
 import time
 import cv2
-import mediapipe as mp
 import numpy as np
+
+# Silence absl (Python-side MediaPipe logs)
+logging.getLogger('absl').setLevel(logging.ERROR)
 
 import config
 from capture import CaptureModule
@@ -13,6 +21,20 @@ from hero_state import HeroMapper
 from input_mapper import InputController
 from heroes.moira import MoiraMapper
 from heroes.ramattra import RamattraMapper
+
+
+def _setup_logging() -> logging.Logger:
+    level = logging.DEBUG if config.DEBUG_LOG else logging.INFO
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(logging.Formatter('[%(asctime)s] %(message)s', datefmt='%H:%M:%S'))
+    logger = logging.getLogger('gesture_overwatch')
+    logger.setLevel(level)
+    logger.addHandler(handler)
+    logger.propagate = False
+    return logger
+
+
+logger = _setup_logging()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -107,6 +129,7 @@ def main_loop(hero: HeroMapper) -> None:
     fps          = 0.0
 
     print(f"已选择英雄：{hero.name}，按 ESC 退出。")
+    logger.info("Hero: %s | DEBUG_LOG=%s", hero.name, config.DEBUG_LOG)
 
     while True:
         frame = capture.read_frame()
@@ -125,9 +148,15 @@ def main_loop(hero: HeroMapper) -> None:
         # 映射 + 执行
         for event in events:
             cmds = hero.handle(event)
+            if cmds:
+                cmd_names = ', '.join(f'{c.action.name}({c.key})' for c in cmds)
+                logger.info('EVENT %-22s → %s', event.gesture_type.name, cmd_names)
+            else:
+                logger.debug('EVENT %-22s (no command)', event.gesture_type.name)
             for cmd in cmds:
-                done_ts     = controller.execute(cmd)
+                done_ts      = controller.execute(cmd)
                 last_latency = done_ts - event.timestamp
+                logger.debug('  latency=%.1fms', last_latency)
 
         # 绘制关键点
         draw_hand_landmarks(frame, hand_data_list, tracker)
